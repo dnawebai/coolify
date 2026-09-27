@@ -1,0 +1,38 @@
+name: AWS Coolify Terraform
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Terraform action
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+        default: plan
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: iquash/aws
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_IQUASH_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_IQUASH_REGION || 'ca-central-1' }}
+      - run: terraform init
+      - run: terraform validate
+      - run: terraform plan -var="vpc_id=${{ vars.AWS_IQUASH_VPC_ID }}" -var="subnet_id=${{ vars.AWS_IQUASH_SUBNET_ID }}" -out=tfplan
+      - if: ${{ inputs.action == 'apply' }}
+        run: terraform apply -auto-approve tfplan
