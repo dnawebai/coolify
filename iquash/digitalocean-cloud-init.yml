@@ -1,0 +1,10 @@
+#cloud-config
+package_update: true
+packages:
+  - git
+  - curl
+runcmd:
+  - mkdir -p /opt/dnawebai
+  - git clone --depth 1 https://github.com/dnawebai/coolify.git /opt/dnawebai/coolify
+  - chmod +x /opt/dnawebai/coolify/scripts/install.sh
+  - /opt/dnawebai/coolify/scripts/install.sh
