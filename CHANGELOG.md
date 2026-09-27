@@ -7372,6 +7372,7 @@ All notable changes to this project will be documented in this file.
 - *(security)* Require scoped authorization checks and regression tests
 - *(ai)* Consolidate engineering lessons
 - Update changelog
+- Update changelog
 
 ### ⚡ Performance
 
