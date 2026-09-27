@@ -17,36 +17,6 @@ jobs:
           role-to-assume: ${{ vars.AWS_IQUASH_TERRAFORM_ROLE_ARN }}
           aws-region: ${{ vars.AWS_IQUASH_REGION }}
 
-      - name: Ensure SSM install permission
-        run: |
-          set -euo pipefail
-          cat > /tmp/iquash-ssm-policy.json <<'JSON'
-          {
-            "Version":"2012-10-17",
-            "Statement":[
-              {
-                "Effect":"Allow",
-                "Action":[
-                  "ssm:DescribeInstanceInformation",
-                  "ssm:GetCommandInvocation",
-                  "ssm:ListCommandInvocations",
-                  "ssm:ListCommands"
-                ],
-                "Resource":"*"
-              },
-              {
-                "Effect":"Allow",
-                "Action":"ssm:SendCommand",
-                "Resource":[
-                  "arn:aws:ec2:${{ vars.AWS_IQUASH_REGION }}:${{ vars.AWS_IQUASH_ACCOUNT_ID }}:instance/${{ vars.AWS_IQUASH_INSTANCE_ID }}",
-                  "arn:aws:ssm:${{ vars.AWS_IQUASH_REGION }}::document/AWS-RunShellScript"
-                ]
-              }
-            ]
-          }
-          JSON
-          aws iam put-role-policy             --role-name iquash-coolify-github-terraform             --policy-name iquash-ssm-install             --policy-document file:///tmp/iquash-ssm-policy.json
-
       - name: Verify EC2 and SSM readiness
         run: |
           set -euo pipefail
