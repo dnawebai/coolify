@@ -21,13 +21,3 @@ variable "root_volume_gb" {
   type        = number
   default     = 120
 }
-
-variable "vpc_id" {
-  description = "Existing VPC ID."
-  type        = string
-}
-
-variable "subnet_id" {
-  description = "Existing public subnet ID with route to an Internet Gateway."
-  type        = string
-}

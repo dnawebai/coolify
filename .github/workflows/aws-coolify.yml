@@ -33,6 +33,6 @@ jobs:
           aws-region: ${{ vars.AWS_IQUASH_REGION || 'ca-central-1' }}
       - run: terraform init
       - run: terraform validate
-      - run: terraform plan -var="vpc_id=${{ vars.AWS_IQUASH_VPC_ID }}" -var="subnet_id=${{ vars.AWS_IQUASH_SUBNET_ID }}" -out=tfplan
+      - run: terraform plan -out=tfplan
       - if: ${{ inputs.action == 'apply' }}
         run: terraform apply -auto-approve tfplan
