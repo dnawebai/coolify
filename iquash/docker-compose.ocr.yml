@@ -1,0 +1,44 @@
+services:
+  paddleocr:
+    build:
+      context: https://github.com/dnawebai/PaddleOCR.git#main
+      dockerfile: iquash_service/Dockerfile
+    restart: unless-stopped
+    environment:
+      IQUASH_OCR_API_KEY: ${IQUASH_OCR_API_KEY}
+      IQUASH_OCR_MAX_UPLOAD_BYTES: ${IQUASH_OCR_MAX_UPLOAD_BYTES:-31457280}
+      PORT: 8080
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 240s
+      retries: 5
+    networks:
+      - iquash-ocr
+
+  docling:
+    build:
+      context: https://github.com/dnawebai/docling.git#main
+      dockerfile: iquash_service/Dockerfile
+    restart: unless-stopped
+    environment:
+      IQUASH_DOCLING_API_KEY: ${IQUASH_DOCLING_API_KEY}
+      IQUASH_DOCLING_MAX_UPLOAD_BYTES: ${IQUASH_DOCLING_MAX_UPLOAD_BYTES:-31457280}
+      PORT: 8080
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 240s
+      retries: 5
+    networks:
+      - iquash-ocr
+
+networks:
+  iquash-ocr:
+    driver: bridge
