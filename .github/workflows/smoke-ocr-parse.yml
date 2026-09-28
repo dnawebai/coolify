@@ -1,0 +1,90 @@
+name: Smoke Test iQuash OCR Parse
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Create legal-document fixture
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = [
+              "BT",
+              "/F1 16 Tf",
+              "72 720 Td",
+              "(ONTARIO COURT OF JUSTICE) Tj",
+              "0 -30 Td",
+              "(OFFENCE NOTICE) Tj",
+              "0 -28 Td",
+              "/F1 11 Tf",
+              "(Ticket Number: TEST-12345) Tj",
+              "0 -22 Td",
+              "(Defendant: JANE TEST) Tj",
+              "0 -22 Td",
+              "(Offence: Speeding 15 km/h over posted limit) Tj",
+              "0 -22 Td",
+              "(Offence Date: 2026-09-27) Tj",
+              "0 -22 Td",
+              "(Location: Oakville, Ontario) Tj",
+              "0 -22 Td",
+              "(Set Fine: $50.00) Tj",
+              "0 -22 Td",
+              "(Total Payable: $75.00) Tj",
+              "0 -22 Td",
+              "(Page 1 of 1) Tj",
+              "ET",
+          ]
+          stream = "\n".join(text).encode()
+          objects = [
+              b"<< /Type /Catalog /Pages 2 0 R >>",
+              b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+              b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+              b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+              b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream",
+          ]
+          out = bytearray(b"%PDF-1.4\n")
+          offsets = [0]
+          for i, obj in enumerate(objects, 1):
+              offsets.append(len(out))
+              out += f"{i} 0 obj\n".encode() + obj + b"\nendobj\n"
+          xref = len(out)
+          out += f"xref\n0 {len(objects)+1}\n".encode()
+          out += b"0000000000 65535 f \n"
+          for off in offsets[1:]:
+              out += f"{off:010d} 00000 n \n".encode()
+          out += f"trailer\n<< /Size {len(objects)+1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+          Path("legal-fixture.pdf").write_bytes(out)
+          PY
+          file legal-fixture.pdf
+          test -s legal-fixture.pdf
+
+      - name: Test PaddleOCR parse
+        env:
+          API_KEY: ${{ secrets.IQUASH_OCR_API_KEY }}
+        run: |
+          set -euo pipefail
+          HTTP_CODE="$(curl -sS --max-time 900             -o paddle.json             -w '%{http_code}'             -H "Authorization: Bearer $API_KEY"             -F "file=@legal-fixture.pdf;type=application/pdf"             https://ocr.3-19-77-120.sslip.io/v1/parse)"
+          echo "PaddleOCR HTTP $HTTP_CODE"
+          test "$HTTP_CODE" = "200"
+          jq '{engine,document_type,page_count,pages:[.pages[]|{page_index,text:(.text|tostring|.[0:500])}]}' paddle.json
+          jq -e '.page_count >= 1 and (.pages|length) >= 1' paddle.json >/dev/null
+          jq -e '[.pages[].text] | join(" ") | test("OFFENCE|Ticket|Ontario";"i")' paddle.json >/dev/null
+
+      - name: Test Docling parse
+        env:
+          API_KEY: ${{ secrets.IQUASH_DOCLING_API_KEY }}
+        run: |
+          set -euo pipefail
+          HTTP_CODE="$(curl -sS --max-time 900             -o docling.json             -w '%{http_code}'             -H "Authorization: Bearer $API_KEY"             -F "file=@legal-fixture.pdf;type=application/pdf"             https://docling.3-19-77-120.sslip.io/v1/parse)"
+          echo "Docling HTTP $HTTP_CODE"
+          test "$HTTP_CODE" = "200"
+          jq '{engine,document_type,page_count,markdown:(.markdown|tostring|.[0:1000])}' docling.json
+          jq -e '.page_count >= 1 and (.markdown|length) > 20' docling.json >/dev/null
+          jq -e '.markdown | test("OFFENCE|Ticket|Ontario";"i")' docling.json >/dev/null
