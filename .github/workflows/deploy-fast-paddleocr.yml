@@ -1,0 +1,44 @@
+name: Deploy Fast iQuash PaddleOCR
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_IQUASH_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_IQUASH_REGION }}
+
+      - name: Rebuild and start PaddleOCR only
+        run: |
+          set -euo pipefail
+          COMMAND_ID="$(aws ssm send-command             --instance-ids "${{ vars.AWS_IQUASH_INSTANCE_ID }}"             --document-name "AWS-RunShellScript"             --comment "Deploy fast iQuash PaddleOCR"             --timeout-seconds 2400             --parameters 'commands=["set -eu","git -C /opt/dnawebai/coolify fetch origin main","git -C /opt/dnawebai/coolify reset --hard origin/main","cd /opt/dnawebai/coolify/iquash","docker compose -f docker-compose.ocr.yml build paddleocr","docker compose -f docker-compose.ocr.yml up -d paddleocr","docker ps --filter name=iquash-paddleocr --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\""]'             --query 'Command.CommandId' --output text)"
+          echo "SSM command: $COMMAND_ID"
+          for i in $(seq 1 240); do
+            STATUS="$(aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "${{ vars.AWS_IQUASH_INSTANCE_ID }}" --query Status --output text 2>/dev/null || true)"
+            echo "[$i] $STATUS"
+            case "$STATUS" in Success|Failed|Cancelled|TimedOut) break;; esac
+            sleep 10
+          done
+          RESULT="$(aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "${{ vars.AWS_IQUASH_INSTANCE_ID }}" --output json)"
+          echo "$RESULT"
+          test "$(echo "$RESULT" | jq -r .Status)" = "Success"
+
+      - name: Wait for warmed service
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            HEALTH="$(curl -fsS --max-time 5 https://ocr.3-19-77-120.sslip.io/health || true)"
+            echo "$HEALTH"
+            if echo "$HEALTH" | grep -q '"ok":true' && echo "$HEALTH" | grep -q 'PP-OCRv6 tiny'; then exit 0; fi
+            sleep 5
+          done
+          exit 1
