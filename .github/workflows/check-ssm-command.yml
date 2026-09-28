@@ -1,0 +1,29 @@
+name: Check iQuash SSM Command
+
+on:
+  workflow_dispatch:
+    inputs:
+      command_id:
+        description: AWS SSM command ID
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_IQUASH_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_IQUASH_REGION }}
+      - name: Get command result
+        run: |
+          set -euo pipefail
+          aws ssm get-command-invocation \
+            --command-id "${{ inputs.command_id }}" \
+            --instance-id "${{ vars.AWS_IQUASH_INSTANCE_ID }}" \
+            --output json
