@@ -1,12 +1,15 @@
+name: iquash-ocr
+
 services:
   paddleocr:
     build:
       context: https://github.com/dnawebai/PaddleOCR.git#main
       dockerfile: iquash_service/Dockerfile
+    container_name: iquash-paddleocr
     restart: unless-stopped
     environment:
-      IQUASH_OCR_API_KEY: ${IQUASH_OCR_API_KEY}
-      IQUASH_OCR_MAX_UPLOAD_BYTES: ${IQUASH_OCR_MAX_UPLOAD_BYTES:-31457280}
+      IQUASH_OCR_API_KEY_SHA256: ba3d24011cb388f60e9db1a6a0fb6bd5c7b4b026945648f1d02655e8a6d9b05d
+      IQUASH_OCR_MAX_UPLOAD_BYTES: 31457280
       PORT: 8080
     expose:
       - "8080"
@@ -17,16 +20,25 @@ services:
       start_period: 240s
       retries: 5
     networks:
-      - iquash-ocr
+      - coolify
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.routers.iquash-paddleocr.rule=Host(`ocr.3-19-77-120.sslip.io`)
+      - traefik.http.routers.iquash-paddleocr.entrypoints=https
+      - traefik.http.routers.iquash-paddleocr.tls=true
+      - traefik.http.routers.iquash-paddleocr.tls.certresolver=letsencrypt
+      - traefik.http.services.iquash-paddleocr.loadbalancer.server.port=8080
 
   docling:
     build:
       context: https://github.com/dnawebai/docling.git#main
       dockerfile: iquash_service/Dockerfile
+    container_name: iquash-docling
     restart: unless-stopped
     environment:
-      IQUASH_DOCLING_API_KEY: ${IQUASH_DOCLING_API_KEY}
-      IQUASH_DOCLING_MAX_UPLOAD_BYTES: ${IQUASH_DOCLING_MAX_UPLOAD_BYTES:-31457280}
+      IQUASH_DOCLING_API_KEY_SHA256: e70f6ef01b0103339957e1c4aa156df00162dac204fd1412096d3baf6bc93fba
+      IQUASH_DOCLING_MAX_UPLOAD_BYTES: 31457280
       PORT: 8080
     expose:
       - "8080"
@@ -37,8 +49,16 @@ services:
       start_period: 240s
       retries: 5
     networks:
-      - iquash-ocr
+      - coolify
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.routers.iquash-docling.rule=Host(`docling.3-19-77-120.sslip.io`)
+      - traefik.http.routers.iquash-docling.entrypoints=https
+      - traefik.http.routers.iquash-docling.tls=true
+      - traefik.http.routers.iquash-docling.tls.certresolver=letsencrypt
+      - traefik.http.services.iquash-docling.loadbalancer.server.port=8080
 
 networks:
-  iquash-ocr:
-    driver: bridge
+  coolify:
+    external: true
