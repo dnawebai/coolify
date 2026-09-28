@@ -33,7 +33,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}/${GitHubRepo}:ref:refs/heads/main
+                token.actions.githubusercontent.com:sub: repo:dnawebai@300473651/coolify@1371635660:ref:refs/heads/main
       Policies:
         - PolicyName: iquash-ec2-ssm-install
           PolicyDocument:
